@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dagens uppgifter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..800&family=Open+Sans:wght@600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F2EBE0; --card:#FAF5EE; --field:#FCF8F3; --line:#E4D9CB;
+    --ink:#3B2E25; --text:#4A3D33; --muted:#7A6A5D; --brown:#5B3A29; --brown-2:#704A36;
+    --sage:#7E9474; --pill-on:#F0DCD3; --pill-off:#E6DDD0;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--text);
+    font-family:"Archivo",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  button,input{font:inherit;color:inherit}
+  button{cursor:pointer}
+  .app{max-width:440px;margin:0 auto;padding:48px 24px 140px;min-height:100vh}
+
+  /* ---------- Header ---------- */
+  header.top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
+  .day{margin:26px 0 0;font-size:clamp(40px,12vw,52px);line-height:1;font-weight:800;font-stretch:84%;color:var(--ink);letter-spacing:-.5px}
+  .date{margin:14px 0 0;font-size:clamp(19px,5.6vw,24px);color:#6F6156;font-weight:400}
+  .clock{flex:0 0 auto;width:136px;height:142px;border-radius:28px;background:var(--card);
+    border:1px solid var(--line);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
+  .clock span{font-size:22px;color:var(--muted)}
+  .clock time{font-size:40px;font-weight:800;font-stretch:96%;color:var(--brown);font-variant-numeric:tabular-nums;letter-spacing:.5px}
+
+  h2{margin:34px 0 20px;font-size:26px;font-weight:400;color:var(--muted)}
+
+  /* ---------- Lists ---------- */
+  ul.list{list-style:none;margin:0;padding:0}
+  .row{display:grid;grid-template-rows:1fr;margin-bottom:16px;
+    transition:grid-template-rows .5s cubic-bezier(.4,0,.2,1),margin .5s cubic-bezier(.4,0,.2,1),opacity .35s}
+  .row-inner{min-height:0;overflow:visible}
+  .row.collapsed{grid-template-rows:0fr;margin-bottom:0;opacity:0}
+  .row.collapsed .row-inner{overflow:hidden}
+  .row.enter{animation:rowIn .45s cubic-bezier(.2,.8,.3,1)}
+  @keyframes rowIn{from{opacity:0;transform:translateY(-8px)}}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px}
+  .task{min-height:64px;display:flex;align-items:center;gap:14px;padding:10px 22px 10px 30px}
+  .task-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+  .task-title{font-size:17px;color:var(--text);overflow-wrap:anywhere}
+  .task-meta{font-size:13px;color:var(--muted)}
+  .task-meta.late{color:#A0573A}
+
+  .check{flex:0 0 auto;width:22px;height:22px;border-radius:50%;border:2px solid var(--muted);background:transparent;
+    padding:0;display:grid;place-items:center;transition:background .2s,border-color .2s,transform .2s}
+  .check svg{width:13px;height:13px;opacity:0;transform:scale(.4);transition:opacity .2s,transform .25s cubic-bezier(.3,1.6,.5,1)}
+  .check:hover{border-color:var(--sage);transform:scale(1.06)}
+  .check.checked{background:var(--sage);border-color:var(--sage)}
+  .check.checked svg{opacity:1;transform:scale(1)}
+
+  .icon-btn{flex:0 0 auto;border:0;background:transparent;padding:6px;margin-right:-6px;border-radius:8px;display:grid;place-items:center;color:#111}
+  .icon-btn:hover{background:#EFE6DA}
+  .icon-btn svg{width:22px;height:22px}
+
+  /* upcoming */
+  .up{display:flex;gap:10px;align-items:stretch}
+  .badge{flex:0 0 70px;display:grid;place-items:center;font-weight:800;font-stretch:96%;font-size:16px;color:#6B5A4D;letter-spacing:.3px}
+  .up .task{flex:1;padding-left:12px;gap:10px}
+  .place{display:flex;align-items:center;gap:6px;font-size:14px;color:#6F6156;max-width:44%;min-width:0}
+  .place svg{flex:0 0 auto;width:17px;height:17px}
+  .place span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+  .empty{padding:22px 24px;border:1.5px dashed var(--line);border-radius:14px;color:var(--muted);font-size:16px;text-align:center;line-height:1.45}
+
+  /* done today */
+  .done-toggle{margin:6px 0 0;border:0;background:none;color:var(--muted);font-size:15px;padding:6px 2px;display:flex;align-items:center;gap:8px}
+  .done-toggle svg{width:16px;height:16px;transition:transform .25s}
+  .done-toggle[aria-expanded="true"] .chev{transform:rotate(180deg)}
+  .done-list{list-style:none;margin:6px 0 0;padding:0}
+  .done-list li{display:flex;align-items:center;gap:10px;padding:8px 4px;color:var(--muted);font-size:15px;border-bottom:1px solid #E9E0D3}
+  .done-list li span{flex:1;text-decoration:line-through;text-decoration-color:#B5A797}
+  .done-list button{border:0;background:none;color:var(--brown);font-size:14px;font-weight:600;padding:4px 6px;border-radius:6px}
+  .done-list button:hover{background:#EFE6DA}
+
+  /* ---------- Add box ---------- */
+  .add{margin-top:34px;background:var(--card);border-radius:12px;padding:20px 24px 13px}
+  .add label.lbl{display:block;font-family:"Open Sans",sans-serif;font-weight:600;font-size:14px;color:#111;margin-bottom:12px}
+  .add-row{display:flex;gap:16px;align-items:center;margin-bottom:12px}
+  .field{width:100%;height:40px;border-radius:10px;border:1px solid var(--line);background:var(--field);padding:0 16px;font-size:14px;color:var(--text);outline:none;transition:border-color .2s,box-shadow .2s}
+  .field::placeholder{color:#5f5249}
+  .field:focus{border-color:#B79C86;box-shadow:0 0 0 3px rgba(91,58,41,.12)}
+  .add-row .field{flex:1;min-width:0}
+  .btn{flex:0 0 auto;height:38px;border:0;border-radius:8px;background:var(--brown);color:#fff;
+    font-family:"Open Sans",sans-serif;font-weight:700;font-size:14px;padding:0 13px 0 11px;display:flex;align-items:center;gap:8px;transition:background .2s,transform .1s}
+  .btn:hover{background:var(--brown-2)}
+  .btn:active{transform:scale(.97)}
+  .btn svg{width:14px;height:14px}
+  .extra{display:grid;grid-template-columns:1.25fr 1fr;gap:10px;margin-bottom:12px}
+  .extra .place-field{grid-column:1 / -1}
+  .extra .field{font-size:14px;padding:0 12px}
+  .extra label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
+  .hint{font-size:12px;color:#A0573A;min-height:0;margin:-4px 0 8px}
+
+  /* ---------- Bottom nav ---------- */
+  nav.bottom{position:fixed;left:0;right:0;bottom:0;z-index:20;
+    background:linear-gradient(to top,var(--bg) 70%,rgba(242,235,224,0));padding:22px 0 calc(22px + env(safe-area-inset-bottom))}
+  .nav-inner{max-width:440px;margin:0 auto;padding:0 24px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .pill{flex:1;max-width:154px;height:44px;border:0;border-radius:22px;background:var(--pill-off);color:var(--muted);
+    font-family:"Open Sans",sans-serif;font-weight:600;font-size:13px;display:flex;align-items:center;justify-content:center;gap:7px;transition:background .25s,color .25s}
+  .pill svg{width:20px;height:20px;flex:0 0 auto}
+  .pill[aria-current="page"]{background:var(--pill-on);color:#2c221b}
+  .pill .count{min-width:19px;height:19px;border-radius:10px;background:var(--brown);color:#fff;font-size:11px;display:grid;place-items:center;padding:0 5px}
+  .fab{flex:0 0 52px;width:52px;height:52px;border-radius:50%;border:0;background:var(--brown);color:#fff;display:grid;place-items:center;
+    box-shadow:0 6px 16px rgba(91,58,41,.25);transition:transform .2s,background .2s}
+  .fab:hover{background:var(--brown-2);transform:rotate(90deg)}
+  .fab svg{width:22px;height:22px}
+
+  .view[hidden]{display:none}
+
+  /* ---------- Leaf overlay ---------- */
+  #sky{position:fixed;inset:0;pointer-events:none;z-index:50;overflow:hidden}
+  .raft{position:absolute;width:0;height:0}
+  .leaf{position:absolute;width:250px;height:106px;left:-125px;top:-53px;filter:drop-shadow(0 8px 10px rgba(110,60,25,.22))}
+  .rider{position:absolute;margin:0;transform-origin:50% 100%;box-shadow:0 6px 14px rgba(60,35,20,.12)}
+
+  .toast{position:fixed;left:50%;bottom:104px;transform:translate(-50%,20px);background:var(--ink);color:#fff;padding:10px 16px;border-radius:10px;font-size:14px;opacity:0;transition:.3s;z-index:40;pointer-events:none;max-width:90vw;text-align:center}
+  .toast.show{opacity:1;transform:translate(-50%,0)}
+
+  .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="leafGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#E9AE5F"/>
+      <stop offset=".55" stop-color="#C96E34"/>
+      <stop offset="1" stop-color="#9C4824"/>
+    </linearGradient>
+    <linearGradient id="leafShine" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity=".28"/>
+      <stop offset=".5" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+</svg>
+
+<div class="app">
+  <header class="top">
+    <div>
+      <h1 class="day" id="day">&nbsp;</h1>
+      <p class="date" id="date">&nbsp;</p>
+    </div>
+    <div class="clock" role="timer" aria-live="off">
+      <span>Klockan är</span>
+      <time id="clock">--:--</time>
+    </div>
+  </header>
+
+  <!-- TODAY -->
+  <section class="view" id="view-today" aria-labelledby="h-today">
+    <h2 id="h-today">Dagens uppgifter</h2>
+    <ul class="list" id="today-list"></ul>
+    <div id="done-wrap"></div>
+
+    <form class="add" id="add-today" autocomplete="off">
+      <label class="lbl" for="in-today">Lägg till en uppgift</label>
+      <div class="add-row">
+        <input class="field" id="in-today" placeholder="Vad vill du lägga till?" maxlength="120">
+        <button class="btn" type="submit"><svg viewBox="0 0 14 14"><path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg>Lägg till</button>
+      </div>
+    </form>
+  </section>
+
+  <!-- UPCOMING -->
+  <section class="view" id="view-upcoming" aria-labelledby="h-up" hidden>
+    <h2 id="h-up">Kommande uppgifter</h2>
+    <ul class="list" id="up-list"></ul>
+
+    <form class="add" id="add-up" autocomplete="off">
+      <label class="lbl" for="in-up">Lägg till en kommande uppgift</label>
+      <div class="add-row">
+        <input class="field" id="in-up" placeholder="Vad vill du lägga till?" maxlength="120">
+        <button class="btn" type="submit"><svg viewBox="0 0 14 14"><path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg>Lägg till</button>
+      </div>
+      <div class="extra">
+        <label>Datum<input class="field" type="date" id="in-date" required></label>
+        <label>Tid (valfritt)<input class="field" type="time" id="in-time"></label>
+        <label class="place-field">Plats (valfritt)<input class="field" id="in-place" placeholder="t.ex. Linnégatan 36" maxlength="60"></label>
+      </div>
+      <p class="hint" id="up-hint"></p>
+    </form>
+  </section>
+</div>
+
+<nav class="bottom" aria-label="Vyer">
+  <div class="nav-inner">
+    <button class="pill" id="nav-today" data-view="today">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M5 12.5l4.5 4.5L19 7.5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Dagens uppgifter
+    </button>
+    <button class="fab" id="fab" aria-label="Lägg till uppgift">
+      <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+    </button>
+    <button class="pill" id="nav-up" data-view="upcoming">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="5.5" width="16" height="15" rx="2.5"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4" stroke-linecap="round"/></svg>
+      Kommande <span class="count" id="up-count" hidden></span>
+    </button>
+  </div>
+</nav>
+
+<div id="sky" aria-hidden="true"></div>
+<div class="toast" id="toast" role="status"></div>
+<p class="sr" id="live" aria-live="polite"></p>
+
+<script>
+(() => {
+  /* ---------------- helpers ---------------- */
+  const $ = s => document.querySelector(s);
+  const pad = n => String(n).padStart(2, '0');
+  const ymd = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+  const today = () => ymd(new Date());
+  const tomorrow = () => { const d = new Date(); d.setDate(d.getDate() + 1); return ymd(d); };
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const fmtTime = t => t ? t.replace(':', '.') : '';
+  const dm = s => { const [, m, d] = s.split('-'); return (+d) + '/' + (+m); };
+
+  const ICON = {
+    check: '<svg viewBox="0 0 14 14"><path d="M2.5 7.3l2.9 2.9 6-6.2" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3.5 6h17" stroke-linecap="round"/><path d="M9 6V3.5h6V6"/><path d="M5.5 6l1 14.5h11l1-14.5"/><path d="M10 10v7M14 10v7" stroke-linecap="round"/></svg>',
+    pin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 21s-6.5-6.2-6.5-11a6.5 6.5 0 0113 0c0 4.8-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/></svg>',
+    chev: '<svg class="chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6l4 4 4-4"/></svg>',
+    leafSmall: '<svg viewBox="0 0 24 24" width="16" height="16"><path d="M3 13c3-8 11-10 18-9-1 8-6 15-14 13" fill="#C96E34"/><path d="M3 21c3-6 7-10 13-13" stroke="#8A4B24" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>'
+  };
+  const LEAF_SVG = `
+    <svg class="leaf" viewBox="0 0 260 110">
+      <path d="M4 61 Q18 59 34 56" stroke="#8A4B24" stroke-width="4.5" stroke-linecap="round" fill="none"/>
+      <path d="M30 56 C 62 12, 152 0, 256 40 C 198 94, 104 112, 30 56 Z" fill="url(#leafGrad)"/>
+      <path d="M30 56 C 62 12, 152 0, 256 40 C 198 94, 104 112, 30 56 Z" fill="url(#leafShine)"/>
+      <g stroke="#FFE9C4" fill="none" stroke-linecap="round">
+        <path d="M32 56 C 100 51, 180 45, 250 41" stroke-width="2.4" opacity=".75"/>
+        <path d="M78 53 Q 98 34 116 20 M80 54 Q 104 72 126 86 M128 49 Q 150 30 168 16 M130 50 Q 156 67 178 79 M178 45 Q 198 33 214 25 M180 46 Q 202 58 222 62" stroke-width="1.5" opacity=".55"/>
+      </g>
+    </svg>`;
+
+  function el(tag, cls, text) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+  function toast(msg) {
+    const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+    clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), 2400);
+    $('#live').textContent = msg;
+  }
+
+  /* ---------------- storage ---------------- */
+  const LS_KEY = 'leaf-todo-v1';
+  let tasks = [];
+  let col = null;              // db collection when available
+  const leaving = new Map();   // id -> 'checked' | 'gone'
+  let newIds = new Set();
+
+  function loadLocal() {
+    try { const raw = localStorage.getItem(LS_KEY); return raw ? JSON.parse(raw) : []; } catch { return []; }
+  }
+  function saveLocal() { try { localStorage.setItem(LS_KEY, JSON.stringify(tasks)); } catch {} }
+
+  async function remoteSet(t) {
+    if (!col) return;
+    const { id, ...body } = t;
+    try { await col.doc(id).set(body); } catch (e) { handleDbError(e); }
+  }
+  async function remoteDelete(id) {
+    if (!col) return;
+    try { await col.doc(id).delete(); } catch (e) { handleDbError(e); }
+  }
+  function handleDbError(e) {
+    if (e && e.code === 'quota_exceeded') toast('Lagringen är full – ta bort några gamla uppgifter.');
+    else if (e && (e.code === 'invalid_argument' || e.code === 'revoked' || e.code === 'not_granted')) col = null;
+  }
+
+  function upsert(t) {
+    const i = tasks.findIndex(x => x.id === t.id);
+    if (i >= 0) tasks[i] = t; else tasks.push(t);
+    saveLocal(); remoteSet(t);
+  }
+  function removeTask(id) {
+    tasks = tasks.filter(x => x.id !== id);
+    saveLocal(); remoteDelete(id);
+  }
+
+  async function connectDb() {
+    try {
+      if (!window.claude || typeof window.claude.use !== 'function') return;
+      const [db, user] = await Promise.all([claude.use('db'), claude.use('user')]);
+      if (!db || !user) return;
+      const id = await user.id();
+      if (!id) return;
+      const c = db.collection('data/users/' + id);
+      let first = true;
+      c.onSnapshot(snap => {
+        const remote = snap.docs.filter(d => d.exists).map(d => ({ id: d.id, ...d.data() }));
+        if (first) {
+          first = false;
+          col = c;
+          // move any tasks created before the store answered
+          const ids = new Set(remote.map(r => r.id));
+          const localOnly = tasks.filter(t => !ids.has(t.id));
+          if (localOnly.length) {
+            (async () => { for (const t of localOnly) await remoteSet(t); })();
+            tasks = remote.concat(localOnly);
+            saveLocal(); render();
+            return;
+          }
+        }
+        tasks = remote; saveLocal(); render();
+      }, () => { col = null; });
+    } catch { /* keep local mode */ }
+  }
+
+  /* ---------------- clock ---------------- */
+  let shownDay = '';
+  function tick() {
+    const now = new Date();
+    const wd = now.toLocaleDateString('sv-SE', { weekday: 'long' });
+    $('#day').textContent = wd.charAt(0).toUpperCase() + wd.slice(1);
+    $('#date').textContent = now.toLocaleDateString('sv-SE', { day: 'numeric', month: 'long', year: 'numeric' });
+    const hm = pad(now.getHours()) + ':' + pad(now.getMinutes());
+    const c = $('#clock');
+    if (c.textContent !== hm) { c.textContent = hm; c.setAttribute('datetime', hm); }
+    const d = ymd(now);
+    if (shownDay && d !== shownDay) { setDateMin(); render(); }
+    shownDay = d;
+  }
+  function setDateMin() {
+    const di = $('#in-date');
+    di.min = today();
+    if (!di.value || di.value < today()) di.value = tomorrow();
+  }
+
+  /* ---------------- render ---------------- */
+  const byWhen = (a, b) =>
+    (a.date || '').localeCompare(b.date || '') ||
+    (a.time || '99').localeCompare(b.time || '99') ||
+    (a.created || 0) - (b.created || 0);
+
+  function render() {
+    const t = today();
+    renderToday(t);
+    renderUpcoming(t);
+    const n = tasks.filter(x => !x.done && x.date > t).length;
+    const cnt = $('#up-count'); cnt.hidden = !n; cnt.textContent = n;
+    newIds = new Set();
+  }
+
+  function renderToday(t) {
+    const list = $('#today-list');
+    const open = tasks.filter(x => (!x.done || leaving.has(x.id)) && x.date <= t).sort(byWhen);
+    list.replaceChildren();
+    if (!open.length) {
+      const li = el('li'); li.appendChild(el('div', 'empty', 'Allt klart för idag. Lägg till något nedan – eller ta det lugnt.'));
+      list.appendChild(li);
+    }
+    for (const task of open) {
+      const phase = leaving.get(task.id);
+      const li = el('li', 'row' + (phase === 'gone' ? ' collapsed' : '') + (newIds.has(task.id) ? ' enter' : ''));
+      li.dataset.id = task.id;
+      const inner = el('div', 'row-inner');
+      const card = el('div', 'card task');
+      const chk = el('button', 'check' + (phase ? ' checked' : ''));
+      chk.type = 'button';
+      chk.setAttribute('role', 'checkbox');
+      chk.setAttribute('aria-checked', phase ? 'true' : 'false');
+      chk.setAttribute('aria-label', 'Markera som klar: ' + task.text);
+      chk.innerHTML = ICON.check;
+      chk.addEventListener('click', () => completeTask(task.id));
+      const body = el('div', 'task-body');
+      body.appendChild(el('span', 'task-title', task.text));
+      const meta = [];
+      if (task.date < t) meta.push('Från ' + dm(task.date));
+      if (task.time) meta.push(fmtTime(task.time));
+      if (task.place) meta.push(task.place);
+      if (meta.length) body.appendChild(el('span', 'task-meta' + (task.date < t ? ' late' : ''), meta.join(' · ')));
+      const del = el('button', 'icon-btn'); del.type = 'button';
+      del.setAttribute('aria-label', 'Ta bort ' + task.text); del.innerHTML = ICON.trash;
+      del.addEventListener('click', () => deleteTask(task.id));
+      card.append(chk, body, del); inner.appendChild(card); li.appendChild(inner); list.appendChild(li);
+    }
+
+    // finished today
+    const wrap = $('#done-wrap');
+    const done = tasks.filter(x => x.done && x.doneAt === t && !leaving.has(x.id));
+    const wasOpen = wrap.querySelector('.done-toggle')?.getAttribute('aria-expanded') === 'true';
+    wrap.replaceChildren();
+    if (done.length) {
+      const btn = el('button', 'done-toggle'); btn.type = 'button';
+      btn.setAttribute('aria-expanded', wasOpen ? 'true' : 'false');
+      btn.innerHTML = ICON.leafSmall;
+      btn.append(document.createTextNode(` Klara idag (${done.length}) `));
+      btn.insertAdjacentHTML('beforeend', ICON.chev);
+      const ul = el('ul', 'done-list'); ul.hidden = !wasOpen;
+      for (const d of done) {
+        const li = el('li'); li.appendChild(el('span', '', d.text));
+        const undo = el('button', '', 'Ångra'); undo.type = 'button';
+        undo.setAttribute('aria-label', 'Ångra klar: ' + d.text);
+        undo.addEventListener('click', () => { upsert({ ...d, done: false, doneAt: null }); newIds.add(d.id); render(); });
+        li.appendChild(undo); ul.appendChild(li);
+      }
+      btn.addEventListener('click', () => {
+        const open = btn.getAttribute('aria-expanded') !== 'true';
+        btn.setAttribute('aria-expanded', open); ul.hidden = !open;
+      });
+      wrap.append(btn, ul);
+    }
+  }
+
+  function renderUpcoming(t) {
+    const list = $('#up-list');
+    const up = tasks.filter(x => !x.done && x.date > t).sort(byWhen);
+    list.replaceChildren();
+    if (!up.length) {
+      const li = el('li'); li.appendChild(el('div', 'empty', 'Inga kommande uppgifter. När dagen kommer flyttar de automatiskt till Dagens uppgifter.'));
+      list.appendChild(li);
+    }
+    for (const task of up) {
+      const li = el('li', 'row' + (leaving.get(task.id) === 'gone' ? ' collapsed' : '') + (newIds.has(task.id) ? ' enter' : ''));
+      li.dataset.id = task.id;
+      const inner = el('div', 'row-inner');
+      const wrap = el('div', 'up');
+      wrap.appendChild(el('div', 'card badge', dm(task.date)));
+      const card = el('div', 'card task');
+      const body = el('div', 'task-body');
+      body.appendChild(el('span', 'task-title', task.text));
+      if (task.time) body.appendChild(el('span', 'task-meta', fmtTime(task.time)));
+      card.appendChild(body);
+      if (task.place) {
+        const p = el('div', 'place'); p.innerHTML = ICON.pin; p.appendChild(el('span', '', task.place)); p.title = task.place;
+        card.appendChild(p);
+      }
+      const del = el('button', 'icon-btn'); del.type = 'button';
+      del.setAttribute('aria-label', 'Ta bort ' + task.text); del.innerHTML = ICON.trash;
+      del.addEventListener('click', () => deleteTask(task.id));
+      card.appendChild(del);
+      wrap.appendChild(card); inner.appendChild(wrap); li.appendChild(inner); list.appendChild(li);
+    }
+  }
+
+  const rowOf = id => document.querySelector(`.row[data-id="${CSS.escape(id)}"]`);
+
+  /* ---------------- actions ---------------- */
+  async function deleteTask(id) {
+    if (leaving.has(id)) return;
+    leaving.set(id, 'gone');
+    rowOf(id)?.classList.add('collapsed');
+    await wait(reduced() ? 50 : 450);
+    leaving.delete(id);
+    removeTask(id); render();
+  }
+
+  function commitDone(id) {
+    const t = tasks.find(x => x.id === id);
+    if (t) upsert({ ...t, done: true, doneAt: today() });
+  }
+
+  async function completeTask(id) {
+    if (leaving.has(id)) return;
+    const task = tasks.find(x => x.id === id);
+    if (!task) return;
+    leaving.set(id, 'checked');
+    const row = rowOf(id);
+    const chk = row?.querySelector('.check');
+    chk?.classList.add('checked'); chk?.setAttribute('aria-checked', 'true');
+    $('#live').textContent = task.text + ' är klar.';
+
+    if (reduced() || !row || !Element.prototype.animate) {
+      await wait(350);
+      leaving.set(id, 'gone'); rowOf(id)?.classList.add('collapsed');
+      await wait(450);
+      commitDone(id); leaving.delete(id); render();
+      return;
+    }
+
+    await wait(260);
+    const card = rowOf(id).querySelector('.card');
+    const r = card.getBoundingClientRect();
+    const landX = r.left + r.width / 2;
+    const landY = Math.min(r.bottom + 4, window.innerHeight - 150);
+
+    const sky = $('#sky');
+    const raft = el('div', 'raft');
+    raft.style.left = landX + 'px'; raft.style.top = landY + 'px';
+    raft.innerHTML = LEAF_SVG;
+    const leaf = raft.querySelector('.leaf');
+    sky.appendChild(raft);
+
+    /* 1 — the leaf drifts down, swaying like a pendulum */
+    const H = landY + 170;
+    const sway = 'cubic-bezier(.45,0,.55,1)';
+    const fall = leaf.animate([
+      { transform: `translate(-80px,${-H}px) rotate(-32deg)`, opacity: 0, easing: sway },
+      { transform: `translate(70px,${-H * .74}px) rotate(18deg)`, opacity: 1, offset: .22, easing: sway },
+      { transform: `translate(-60px,${-H * .48}px) rotate(-20deg)`, offset: .44, easing: sway },
+      { transform: `translate(44px,${-H * .24}px) rotate(13deg)`, offset: .66, easing: sway },
+      { transform: `translate(-16px,-18px) rotate(-7deg)`, offset: .86, easing: sway },
+      { transform: 'translate(0,0) rotate(-2deg)', opacity: 1 }
+    ], { duration: 2000, fill: 'forwards' });
+    await fall.finished;
+
+    /* 2 — the task hops onto the leaf */
+    const rider = card.cloneNode(true);
+    rider.classList.add('rider');
+    Object.assign(rider.style, {
+      width: r.width + 'px', height: r.height + 'px',
+      left: (r.left - landX) + 'px', top: (r.top - landY) + 'px'
+    });
+    raft.appendChild(rider);
+    card.style.visibility = 'hidden';
+
+    const s = Math.min(.56, 205 / r.width);
+    const dy = -9 - (r.bottom - landY);     // bottom of the card onto the leaf's midrib
+    const hop = rider.animate([
+      { transform: 'translate(0,0) scale(1)', easing: 'ease-out' },
+      { transform: 'translate(0,3px) scale(1.03,.9)', offset: .16, easing: 'cubic-bezier(.2,.7,.35,1)' },
+      { transform: `translate(0,${dy - 78}px) scale(${s * 1.08},${s * 1.18})`, offset: .55, easing: 'cubic-bezier(.55,0,.8,.4)' },
+      { transform: `translate(0,${dy + 2}px) scale(${s * 1.1},${s * .86})`, offset: .84, easing: 'ease-out' },
+      { transform: `translate(0,${dy}px) scale(${s})` }
+    ], { duration: 950, fill: 'forwards' });
+
+    setTimeout(() => { leaving.set(id, 'gone'); rowOf(id)?.classList.add('collapsed'); }, 420);
+    setTimeout(() => {               // the leaf dips under the weight
+      leaf.animate([
+        { transform: 'translate(0,0) rotate(-2deg)' },
+        { transform: 'translate(0,9px) rotate(1.5deg)', offset: .35 },
+        { transform: 'translate(0,-2px) rotate(-3deg)', offset: .7 },
+        { transform: 'translate(0,0) rotate(-2deg)' }
+      ], { duration: 700, easing: 'ease-in-out', fill: 'forwards' });
+    }, 800);
+    await hop.finished;
+    commitDone(id);
+    await wait(380);
+
+    /* 3 — leaf and task float calmly away on the breeze */
+    const dx = window.innerWidth - landX + 220;
+    const calm = 'cubic-bezier(.42,0,.58,1)';
+    const drift = raft.animate([
+      { transform: 'translate(0,0) rotate(0deg)', opacity: 1, easing: calm },
+      { transform: `translate(${dx * .1}px,-22px) rotate(-4deg)`, offset: .2, easing: calm },
+      { transform: `translate(${dx * .3}px,-34px) rotate(3deg)`, offset: .42, easing: calm },
+      { transform: `translate(${dx * .58}px,-92px) rotate(-3deg)`, offset: .68, opacity: .9, easing: calm },
+      { transform: `translate(${dx}px,-190px) rotate(6deg)`, opacity: 0 }
+    ], { duration: 4200, fill: 'forwards' });
+    await drift.finished;
+    raft.remove();
+    leaving.delete(id);
+    render();
+  }
+
+  /* ---------------- forms ---------------- */
+  $('#add-today').addEventListener('submit', e => {
+    e.preventDefault();
+    const inp = $('#in-today'); const text = inp.value.trim();
+    if (!text) { inp.focus(); return; }
+    const t = { id: uid(), text, date: today(), time: '', place: '', done: false, doneAt: null, created: Date.now() };
+    newIds.add(t.id); upsert(t); render();
+    inp.value = ''; inp.focus();
+  });
+
+  $('#add-up').addEventListener('submit', e => {
+    e.preventDefault();
+    const inp = $('#in-up'); const text = inp.value.trim();
+    const date = $('#in-date').value;
+    const hint = $('#up-hint'); hint.textContent = '';
+    if (!text) { inp.focus(); return; }
+    if (!date) { hint.textContent = 'Välj ett datum.'; $('#in-date').focus(); return; }
+    if (date < today()) { hint.textContent = 'Datumet har redan passerat.'; $('#in-date').focus(); return; }
+    const t = { id: uid(), text, date, time: $('#in-time').value || '', place: $('#in-place').value.trim(), done: false, doneAt: null, created: Date.now() };
+    newIds.add(t.id); upsert(t); render();
+    inp.value = ''; $('#in-time').value = ''; $('#in-place').value = '';
+    if (date === today()) toast('Datumet är idag – uppgiften ligger under Dagens uppgifter.');
+    else toast('Tillagd ' + dm(date) + (t.time ? ' kl. ' + fmtTime(t.time) : ''));
+    inp.focus();
+  });
+
+  /* ---------------- views ---------------- */
+  function showView(v, focus) {
+    const up = v === 'upcoming';
+    $('#view-today').hidden = up;
+    $('#view-upcoming').hidden = !up;
+    $('#nav-today').toggleAttribute('aria-current', false);
+    $('#nav-up').toggleAttribute('aria-current', false);
+    (up ? $('#nav-up') : $('#nav-today')).setAttribute('aria-current', 'page');
+    const h = up ? '#kommande' : '';
+    if (location.hash !== h) { try { history.replaceState(null, '', h || location.pathname + location.search); } catch {} }
+    if (focus) window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+  $('#nav-today').addEventListener('click', () => showView('today', true));
+  $('#nav-up').addEventListener('click', () => showView('upcoming', true));
+  $('#fab').addEventListener('click', () => {
+    const up = !$('#view-upcoming').hidden;
+    const inp = up ? $('#in-up') : $('#in-today');
+    inp.closest('form').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setTimeout(() => inp.focus({ preventScroll: true }), 250);
+  });
+  window.addEventListener('hashchange', () => showView(location.hash === '#kommande' ? 'upcoming' : 'today'));
+
+  /* ---------------- start ---------------- */
+  tasks = loadLocal();
+  setDateMin();
+  tick(); setInterval(tick, 1000);
+  showView(location.hash === '#kommande' ? 'upcoming' : 'today');
+  render();
+  connectDb();
+})();
+</script>
+</body>
+</html>
